@@ -1,8 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
-public class InfiltradoController : MonoBehaviour
+public class InfiltradoController: MonoBehaviour
 {
   public float moveSpeed = 5f; // Velocidad de movimiento del infiltrador
     public float stoppingDistance = 0.1f; // Distancia mínima para considerar que ha llegado al objetivo
@@ -10,6 +11,7 @@ public class InfiltradoController : MonoBehaviour
     private List<Vector3> targetPositions = new List<Vector3>(); // Lista de posiciones hacia las que se dirige el infiltrador
     private int currentTargetIndex = -1; // Índice del destino actual en la lista
     private bool isMoving = false; // Indica si el infiltrador está en movimiento
+
 
     void Update()
     {
