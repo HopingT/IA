@@ -3,15 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class InfiltradoController: MonoBehaviour
+public class InfiltradoController : MonoBehaviour
 {
-  public float moveSpeed = 5f; // Velocidad de movimiento del infiltrador
+    public float moveSpeed = 5f; // Velocidad de movimiento del infiltrador
     public float stoppingDistance = 0.1f; // Distancia mínima para considerar que ha llegado al objetivo
 
     private List<Vector3> targetPositions = new List<Vector3>(); // Lista de posiciones hacia las que se dirige el infiltrador
     private int currentTargetIndex = -1; // Índice del destino actual en la lista
     private bool isMoving = false; // Indica si el infiltrador está en movimiento
-
+    private Vector3 lastTargetPosition;
 
     void Update()
     {
@@ -26,6 +26,12 @@ public class InfiltradoController: MonoBehaviour
         }
     }
 
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawSphere(lastTargetPosition, 0.1f);
+    }
+
     void SetTargetPosition()
     {
         Plane plane = new Plane(Vector3.up, 0f);
@@ -36,6 +42,9 @@ public class InfiltradoController: MonoBehaviour
         {
             Vector3 newTargetPosition = ray.GetPoint(distance);
             targetPositions.Add(newTargetPosition);
+
+            // Actualiza la última posición de destino
+            lastTargetPosition = newTargetPosition;
 
             // Si el infiltrador no está en movimiento, comienza a moverse hacia el nuevo destino
             if (!isMoving)

@@ -1,68 +1,208 @@
 using UnityEngine;
 
-public class ConeVision : MonoBehaviour
+public class GuardScript : MonoBehaviour
 {
-    public float viewDistance = 10f; // Distancia máxima de visión
-    public float viewAngle = 45f; // Ángulo de visión cónica
-    public float rotationInterval = 5f; // Intervalo de rotación en segundos
-    public float rotationAngle = 45f; // Ángulo de rotación
+    public Transform player; // Referencia al infiltrador
+    public float visionAngle = 45f; // Ángulo de visión del guardia
+    public float visionRadius = 10f; // Radio de visión del guardia
+    public float rotationInterval = 5f; // Intervalo de rotación del guardia
+    public float alertDuration = 3f; // Duración del estado de alerta
+    public float attackDuration = 5f; // Duración del estado de ataque
+    public float pursuitSpeed = 5f; // Velocidad de persecución del guardia
+    public Transform initialPosition; // Posición inicial del guardia
+    public float attackRange = 0.1f;
+    private float timeSinceLastRotation = 0f;
+    private bool isAlerted = false;
+    private bool isAttacking = false;
+    private Vector3 lastPlayerPosition;
+    public Color normalColor = Color.yellow;
+    public Color alertedColor = Color.red;
+    public Color attackingColor = Color.magenta;
 
-    private void Start()
+    void Start()
     {
-        // Comenzar la rotación periódica
-        InvokeRepeating("RotateGuard", 0f, rotationInterval);
+        lastPlayerPosition = initialPosition.position;
     }
 
-    private void RotateGuard()
+    void Update()
     {
-        // Rotar el agente Guardia en el eje Y
-        transform.Rotate(Vector3.up, rotationAngle);
-    }
-
-    private void Update()
-    {
-        // Obtener la dirección hacia adelante del agente
-        Vector3 forward = transform.forward;
-
-        // Obtener todos los objetos dentro de la distancia de visión
-        Collider[] targetsInViewRadius = Physics.OverlapSphere(transform.position, viewDistance);
-
-        // Para cada objetivo dentro de la distancia de visión
-        foreach (Collider target in targetsInViewRadius)
+        if (!isAlerted && !isAttacking)
         {
-            // Calcular la dirección al objetivo
-            Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
+            RotateGuard();
+            CheckForPlayer();
+        }
+        else if (isAlerted)
+        {
+            AlertState();
+        }
+        else if (isAttacking)
+        {
+            AttackState();
+        }
+    }
 
-            // Si el objetivo está dentro del ángulo de visión
-            if (Vector3.Angle(forward, dirToTarget) < viewAngle / 2)
+    void RotateGuard()
+    {
+        timeSinceLastRotation += Time.deltaTime;
+        if (timeSinceLastRotation >= rotationInterval)
+        {
+            // Rotar el guardia en un ángulo aleatorio
+            transform.Rotate(Vector3.up, Random.Range(45f, 90f));
+            timeSinceLastRotation = 0f;
+        }
+    }
+
+    void CheckForPlayer()
+    {
+        Vector3 directionToPlayer = player.position - transform.position;
+        float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
+        if (angleToPlayer <= visionAngle / 2f)
+        {
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius))
             {
-                // Lanzar un rayo hacia el objetivo para comprobar si hay obstáculos
-                RaycastHit hit;
-                if (Physics.Raycast(transform.position, dirToTarget, out hit, viewDistance))
+                if (hit.collider.CompareTag("Player"))
                 {
-                    // Si el rayo golpea al objetivo, significa que está dentro del campo de visión
-                    if (hit.collider == target)
-                    {
-                        Debug.DrawLine(transform.position, target.transform.position, Color.green); // Visualización del rayo
-                        // Aquí puedes agregar la lógica para manejar el objetivo dentro del campo de visión
-                        // Por ejemplo, podrías perseguirlo, dispararle, etc.
-                    }
+                    isAlerted = true;
+                    lastPlayerPosition = player.position;
                 }
             }
         }
     }
 
+    void AlertState()
+    {
+        // Ampliar ligeramente el cono de visión
+        visionAngle = 90f; // Ángulo ligeramente más amplio que el normal
 
-    // Método para dibujar el campo de visión en el editor de Unity
-    private void OnDrawGizmosSelected()
+        // Calcular la dirección y distancia al jugador
+        Vector3 directionToPlayer = player.position - transform.position;
+        float distanceToPlayer = directionToPlayer.magnitude;
+
+        // Moverse hacia la última posición conocida del jugador con Arrive
+        Vector3 moveDirection = (lastPlayerPosition - transform.position).normalized;
+        float distanceToLastSeen = Vector3.Distance(transform.position, lastPlayerPosition);
+        float desiredSpeed = Mathf.Min(distanceToLastSeen / 2f, pursuitSpeed); // Ajustar la velocidad deseada para el Arrive
+        Vector3 desiredVelocity = moveDirection * desiredSpeed;
+        Vector3 steering = desiredVelocity - GetComponent<Rigidbody>().velocity;
+        Vector3 acceleration = Vector3.ClampMagnitude(steering, pursuitSpeed);
+        GetComponent<Rigidbody>().velocity += acceleration * Time.deltaTime;
+
+        // Rotar hacia la última posición conocida del jugador
+        Quaternion lookRotation = Quaternion.LookRotation(moveDirection);
+        transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
+
+        // Verificar si el jugador es visible
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius))
+        {
+            if (hit.collider.CompareTag("Player"))
+            {
+                // Cambiar al estado de ataque si el jugador es visible
+                isAlerted = false;
+                isAttacking = true;
+                visionAngle = 45f; // Restablecer el ángulo de visión
+                return;
+            }
+        }
+
+        // Si el guardia ve la última posición conocida, mantenerse alerta
+        if (Vector3.Angle(transform.forward, directionToPlayer) < visionAngle / 2f && distanceToLastSeen <= visionRadius)
+        {
+            // Temporizador para volver al estado normal si el jugador no es detectado
+            alertDuration = 3f; // Reiniciar el temporizador
+            return;
+        }
+
+        // Temporizador para volver al estado normal si el jugador no es detectado
+        if ((alertDuration -= Time.deltaTime) <= 0)
+        {
+            // Si el jugador no es detectado después de volver a la última posición conocida, regresar a la posición inicial
+            ReturnToInitialPosition();
+        }
+    }
+
+
+
+
+    void AttackState()
     {
         
+        // Calculate direction to the player
+        Vector3 directionToPlayer = player.position - transform.position;
 
-        Vector3 leftBoundary = Quaternion.Euler(0, -viewAngle / 2, 0) * transform.forward;
-        Vector3 rightBoundary = Quaternion.Euler(0, viewAngle / 2, 0) * transform.forward;
+        // Move towards the player
+        transform.position += directionToPlayer.normalized * pursuitSpeed * Time.deltaTime;
+        visionAngle = 120;
+        // Rotate towards the player
+        Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer);
+        transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
 
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + leftBoundary * viewDistance);
-        Gizmos.DrawLine(transform.position, transform.position + rightBoundary * viewDistance);
+        // Check if the player is within attack range
+        float distanceToPlayer = directionToPlayer.magnitude;
+        if (distanceToPlayer <= attackRange)
+        {
+            // Attack the player (destroy it or apply damage)
+            Destroy(player.gameObject);
+            // Optionally: Trigger game over, reduce player health, etc.
+        }
+
+        // If attack duration has passed, return to normal state
+        if ((attackDuration -= Time.deltaTime) <= 0)
+        {
+            isAttacking = false;
+            attackDuration = 5;
+            ReturnToInitialPosition();
+            // Optionally: Implement behavior to return to normal state or continue patrolling
+        }
+    }
+
+
+    void ReturnToInitialPosition()
+    {
+        // Implementar el comportamiento de Arrive para volver a la posición inicial
+        Vector3 directionToInitialPosition = initialPosition.position - transform.position;
+        float distanceToInitialPosition = directionToInitialPosition.magnitude;
+
+        if (distanceToInitialPosition > 1f) // Threshold to stop close to the position, e.g., 1 meter
+        {
+            // Move towards the initial position
+            Vector3 moveDirection = directionToInitialPosition.normalized;
+            transform.position += moveDirection * pursuitSpeed * Time.deltaTime;
+
+            // Rotate towards the initial position
+            Quaternion lookRotation = Quaternion.LookRotation(moveDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
+        }
+        else
+        {
+            // If reached initial position, return to normal state
+            isAttacking = false;
+            isAlerted = false;
+        }
+    }
+
+
+    void OnDrawGizmosSelected()
+    {
+        if (isAlerted)
+        {
+            Gizmos.color = alertedColor;
+        }
+        else if (isAttacking)
+        {
+            Gizmos.color = attackingColor;
+        }
+        else
+        {
+            Gizmos.color = normalColor;
+        }
+        // Dibujar el área de visión del guardia
+       
+
+        Vector3 visionDirection = Quaternion.Euler(0, visionAngle / 2f, 0) * transform.forward;
+        Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
+        visionDirection = Quaternion.Euler(0, -visionAngle / 2f, 0) * transform.forward;
+        Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
     }
 }
