@@ -1,8 +1,12 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class GuardScript : MonoBehaviour
 {
     public Transform player; // Referencia al infiltrador
+    public Collider capsuleC;
+    public GameObject player1;
     public float visionAngle = 45f; // Ángulo de visión del guardia
     public float visionRadius = 10f; // Radio de visión del guardia
     public float rotationInterval = 5f; // Intervalo de rotación del guardia
@@ -140,13 +144,6 @@ public class GuardScript : MonoBehaviour
 
         // Check if the player is within attack range
         float distanceToPlayer = directionToPlayer.magnitude;
-        if (distanceToPlayer <= attackRange)
-        {
-            // Attack the player (destroy it or apply damage)
-            Destroy(player.gameObject);
-            // Optionally: Trigger game over, reduce player health, etc.
-        }
-
         // If attack duration has passed, return to normal state
         if ((attackDuration -= Time.deltaTime) <= 0)
         {
@@ -154,6 +151,14 @@ public class GuardScript : MonoBehaviour
             attackDuration = 5;
             ReturnToInitialPosition();
             // Optionally: Implement behavior to return to normal state or continue patrolling
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.CompareTag("Player"))
+        {
+            Destroy(player1);
         }
     }
 
