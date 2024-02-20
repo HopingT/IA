@@ -1,243 +1,385 @@
+using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEditor.Timeline;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
-
-public class GuardScript : MonoBehaviour
+public class Guardia : MonoBehaviour
 {
-    // Variables públicas para configurar el comportamiento del guardia desde el editor de Unity
-    public Transform player; // Referencia al jugador para poder detectarlo
-    public Collider capsuleC; // Colisionador del guardia, no se utiliza en este script
-    public GameObject player1; // Objeto del jugador, utilizado para destruir al jugador si es necesario
-    public float visionAngle = 45f; // Ángulo de visión del guardia para detectar al jugador
-    public float visionRadius = 5f; // Radio de visión del guardia para detectar al jugador
-    public float rotationInterval = 5f; // Tiempo entre rotaciones del guardia cuando no está en alerta
-    public float alertDuration = 3f; // Duración del estado de alerta, no se utiliza en este script
-    public float attackDuration = 5f; // Duración del estado de ataque
-    public float pursuitSpeed = 5f; // Velocidad a la que el guardia persigue al jugador
-    public Transform initialPosition; // Posición inicial del guardia para volver a ella si es necesario
-    public float attackRange = 0.1f; // Rango de ataque del guardia, no se utiliza en este script
-    private float timeSinceLastRotation = 0f; // Temporizador para controlar la rotación del guardia
-    private bool isAlerted = false; // Indica si el guardia está en estado de alerta
-    private bool isAttacking = false; // Indica si el guardia está atacando
-    private Vector3 lastPlayerPosition; // Última posición conocida del jugador
-    public Color normalColor = Color.yellow; // Color del guardia en estado normal
-    public Color alertedColor = Color.red; // Color del guardia en estado de alerta
-    public Color attackingColor = Color.magenta; // Color del guardia en estado de ataque
-
-    // Método Start llamado al inicio para inicializar variables
-    void Start()
+    //Todo para que el arrive funcione
+    public enum SteeringBehavior
     {
-        lastPlayerPosition = player.position; // Inicializa la última posición conocida del jugador
+        None,  // 0
+        PointClick,// 1
+        Pursuit, //2
+    };
+    public float maxSteeringForce = 1.0f;
+    public float maxSpeed = 1.0f;
+    public Rigidbody rb;
+    public bool useArrive = true;
+    public float slowAreaRadius = 5.0f;
+    // Variable donde guardamos la referencia al GameObject que es nuestro objetivo.
+    private GameObject TargetGameObject;
+    // Referencia al Rigidbody del TargetGameObject.
+    private Rigidbody rbTargetGameObject;
+    //-----------------------------------------------------------
+    private Vector3 PosicionInicialAgente;
+    public GameObject agentPrefab;
+    //--------------------------------------------------------------
+    //Establecemos la posicion inicial de nuestro guardia como un vector 3
+    private Vector3 posicionInicial;
+    //Establecemos la ultima posicion detectada de nuestro agente como un vector 3
+    private Vector3 ultimaPosicionDetectada;
+    // Todo para que cambie de color en los diferentes estados
+    //Accedemos al render de nuestro objeto
+    private Renderer RendererObject;
+    //Dependiendo de en que estado vaya a estar le modificamos su color
+    public Color ColorNormal = Color.green;
+    public Color ColorAlerta = Color.yellow;
+    public Color ColorAtaque = Color.red;
+    //----------------------------------------------------------------------
+
+    //Generamos un cronometro para que pasado cierto tiempo cuando nuestro guardia este en alerta si no ha visto de nuevo a nuestro agente, vuelva a 
+    //Su estado normal
+    [SerializeField] private float CuentaRegresiva;
+    //Generamos un cronometro de cada cuanto tiempo va a rotar solo en el estado normal
+    [SerializeField] private float CronometroRotacion = 5f;
+    //Generamos un cronometro de deteccion (Si el jugador permanece cierta cantidad de tiempo en el rango se cambiara de estado)
+    [SerializeField] private float CronometroEstado = 0f;
+    //Generamos un cronometro especificamente para el pursuit
+    [SerializeField] private float CronometroPursuit = 0f;
+
+    //Hacemos una lista con todos los posibles estados
+    public enum Estados
+    {
+        None,
+        Normal,
+        Alerta,
+        Ataque
+    }
+    //Generamos una variable que establecera el estado actual
+    public Estados EstadoActual = Estados.None;
+
+
+    //ANTES DEL EXAMEN
+    //------------------------------------------------------------------------------------------------------------------------------------------
+    // Ubicamos la posicion de nuestro objeto a detectar
+    public Transform Agent;
+
+    // Ubicamos la posicion de nuestro objeto detector
+    public Transform VisionObject;
+
+    // Establecemos un angulo de vision para nuestro objeto detector
+    // Ademas añadimos un rango de giro entre 0 y 360 gradfos que representan una vuelta completa
+    [Range(0f, 360f)]
+    public float VisionAngle = 30f;
+
+    // Establecemos la distancia maxima hasta donde se va a poder ubicar o detectar a nuestro agente
+    public float VisionDistance = 10f;
+
+    // Creamos un booleano para poder identificar cuando hemos o no detectado a nuestro agente ademas de hacerlo visible en el inspector 
+    // por cualquier inconveniente que pueda ocurrir
+    [SerializeField] bool detected;
+
+    // Declaramos un Vector3 que seran posteriormente los puntos a partir de donde se dividira el angulo de vision en 2 y asi obtener mitades 
+    // para facilitar la deteccion del agente, para esto necesitamos el angulo y distancia maxima 
+    Vector3 PointForAngle(float angle, float distance)
+    {
+        // Aqui regresamos que la vision del objeto este situada justo en el o junto al VisionObject y para esto ocupamos el TransformDirecion
+        // (De lo contrario este angulo apareceria en otra ubicacion del entorno)
+        return VisionObject.TransformDirection(
+
+            // Creamos un nuevo vector2 y ocupando trigonometria y formulas matematicas determinamos el coseno y seno del angulo total para
+            // posteriormente convertirlo a radianes y finalmente multiplicar ambos resultados por la distancia maxima de vision
+            new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad))) * distance;
+    }
+    //------------------------------------------------------------------------------------------------------------------------------------------
+    private void Start()
+    {
+        //Accedemos al componente renderer
+        RendererObject = GetComponent<Renderer>();
+        //Establecemos el color inicial
+        RendererObject.material.color = ColorNormal;
+        //Adquitimos la posicion inicial
+        posicionInicial = transform.position;
+        //Encontramos a nuestro objeto con el script MouseClick
+        TargetGameObject = FindAnyObjectByType<InfiltradoController>().gameObject;
+        //Adquirimos su rigidbody del objeto
+        rbTargetGameObject = TargetGameObject.GetComponent<Rigidbody>();
+        //Establecemos la posicion inical del infiltrador
+        PosicionInicialAgente = TargetGameObject.transform.position;
     }
 
-    // Método Update llamado en cada frame para actualizar el estado del guardia
-    void Update()
+    private void Update()
     {
-        // Si el guardia no está alertado ni atacando, rota y busca al jugador
-        if (!isAlerted && !isAttacking)
-        {
-            RotateGuard();
-            CheckForPlayer();
-            visionAngle = 45f; // Restablece el ángulo de visión, aunque ya se inicializa con este valor
-        }
-        // Si el guardia está alertado, entra en estado de alerta
-        else if (isAlerted)
-        {
-            AlertState();
-        }
-        // Si el guardia está atacando, entra en estado de ataque
-        else if (isAttacking)
-        {
-            AttackState();
-            visionAngle = 25f; // Reduce el ángulo de visión para concentrarse en el ataque
-        }
-    }
+        // Establecemos que siempre se intente establecer que el agente no fue detectado
+        detected = false;
 
-    // Método para rotar al guardia en intervalos regulares
-    void RotateGuard()
-    {
-        timeSinceLastRotation += Time.deltaTime; // Aumenta el temporizador basado en el tiempo real
-        if (timeSinceLastRotation >= rotationInterval)
-        {
-            // Rotar el guardia en un ángulo aleatorio entre 45 y 90 grados
-            transform.Rotate(Vector3.up, Random.Range(45f, 90f));
-            timeSinceLastRotation = 0f; // Restablecer el temporizador
-        }
-    }
+        // Creamos un vector 2 para el agente que servira para detectar cuando el mismo este dentro del angulo y rango de deteccion
+        // del VisionObject
+        Vector2 agentVector = Agent.position - VisionObject.position;
 
-    // Método para detectar al jugador dentro del campo de visión
-    void CheckForPlayer()
-    {
-        Vector3 directionToPlayer = player.position - transform.position; // Calcular dirección hacia el jugador
-        float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer); // Calcular ángulo hacia el jugador
-        if (angleToPlayer <= visionAngle / 2f) // Si el jugador está dentro del ángulo de visión
+        // Si el angulo que se fotma entre el agentVector y la posicion derecha del visionObject es menor a la mitad del visionAngle y ...
+        if (Vector3.Angle(agentVector.normalized, VisionObject.right) < VisionAngle * 0.5f)
         {
-            RaycastHit hit;
-            if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius)) // Lanzar un rayo hacia el jugador
+            // ... Si la magnitud/tamaño del vector entre el agente y el VisionObject es menor a la distancia de vision del VisionObject 
+            // se establece que ha sido detectado el agente
+            if (agentVector.magnitude < VisionDistance)
             {
-                if (hit.collider.CompareTag("Player")) // Si el rayo colisiona con el jugador
-                {
-                    isAlerted = true; // El guardia entra en estado de alerta
-                    lastPlayerPosition = player.position; // Actualiza la última posición conocida del jugador
-                } else
-                {
-                    ReturnToInitialPosition();
-                }
-                    
-            }
-        }
-    }
-
-
-
-    void AlertState()
-    {
-        visionAngle = 90f; // Aumentar el ángulo de visión para buscar al jugador más eficazmente
-
-        Vector3 directionToLastSeen = lastPlayerPosition - transform.position; // Calcular dirección hacia la última posición conocida del jugador
-        float distanceToLastSeen = directionToLastSeen.magnitude; // Calcular distancia hacia la última posición conocida del jugador
-
-        // Implementa el comportamiento de "arrive" para acercarse a la última posición conocida del jugador
-        if (distanceToLastSeen > 0.5f) // Si hay una distancia significativa hasta la última posición conocida
-        {
-            float speedFactor = Mathf.Min(distanceToLastSeen / 5f, 1f); // Calcular factor de velocidad para desacelerar al acercarse
-            float desiredSpeed = speedFactor * pursuitSpeed; // Calcular velocidad deseada
-            Vector3 desiredVelocity = directionToLastSeen.normalized * desiredSpeed; // Calcular vector de velocidad deseada
-            GetComponent<Rigidbody>().velocity = desiredVelocity; // Aplicar velocidad al guardia
-        }
-        else
-        {
-            GetComponent<Rigidbody>().velocity = Vector3.zero; // Detener al guardia si está suficientemente cerca
-        }
-
-        // Rotar hacia la última posición conocida del jugador
-        if (directionToLastSeen != Vector3.zero)
-        {
-            Quaternion lookRotation = Quaternion.LookRotation(directionToLastSeen);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 2f); // Suavizar la rotación
-        }
-
-        // Verificar si el jugador vuelve a entrar en el campo de visión
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, directionToLastSeen, out hit, visionRadius))
-        {
-            if (hit.collider.CompareTag("Player")) // Si detecta al jugador
-            {
-                isAlerted = false; // Salir del estado de alerta
-                isAttacking = true; // Entrar en estado de ataque
-                visionAngle = 45f; // Restablecer ángulo de visión
-                visionRadius = 5f; // Restablecer radio de visión
-                return; // Salir del método
+                detected = true;
             }
         }
 
-        // Si el guardia ha llegado a la última posición conocida y no detecta al jugador, vuelve a su posición inicial
-        if (distanceToLastSeen <= 0.2f)
+        //Si ha sido detectado
+        if (detected == true)
         {
-            ReturnToInitialPosition();
+            //El cronometro empezara a sumar 
+            CronometroEstado += Time.deltaTime;
+            //La cuenta regresiva se restablece
+            CuentaRegresiva = 0;
+            //Cambiamos la ultima posicion detectada a la agent.position
+            ultimaPosicionDetectada = Agent.position;
+        }//Si no ha sido detectado
+        else if (detected == false)
+        {
+            //La cuenta regresiva estara actuando
+            CuentaRegresiva += Time.deltaTime;
         }
+
+        //Si entramos en estado de ataque comienza el cronometro de pursuit
+        if (EstadoActual == Estados.Ataque)
+        {
+            CronometroPursuit += Time.deltaTime;
+        }
+
+        //Con el espacio hacemos que vuelvas a activar al personaje
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            CrearNuevoAgente();
+        }
+
+
     }
 
-
-
-
-
-    void AttackState()
+    private void FixedUpdate()
     {
-        Vector3 directionToPlayer = player.position - transform.position; // Calcular dirección hacia el jugador
-        transform.position += directionToPlayer.normalized * pursuitSpeed * Time.deltaTime; // Moverse hacia el jugador
-        visionAngle = 25; // Reducir ángulo de visión para concentrarse en el ataque
-
-        // Rotar hacia el jugador
-        Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer);
-        transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
-
-        // Calcular distancia al jugador
-        float distanceToPlayer = directionToPlayer.magnitude;
-        if ((attackDuration -= Time.deltaTime) <= 0) // Reducir duración del ataque y verificar si ha terminado
+        //Si la cuenta regresiva es mayor o igual a 5
+        if (CuentaRegresiva >= 5)
         {
-            isAttacking = false; // Salir del estado de ataque
-            attackDuration = 5; // Restablecer duración del ataque
-            ReturnToInitialPosition(); // Volver a la posición inicial
+            //El estado siempre va a ser estado normal
+            CambiarEstado(Estados.Normal);
+            //La cuenta regresiva regresara a ser 0 una vez el estado normal este activo
+            CuentaRegresiva = 0;
+            CronometroEstado = 0;
         }
+
+        if (CronometroPursuit >= 5)
+        {
+            //El estado siempre va a ser estado normal
+            CambiarEstado(Estados.Normal);
+            //La cuenta regresiva regresara a ser 0 una vez el estado normal este activo
+            CuentaRegresiva = 0;
+            //El cronometro de estado y pursuit igual se restablece
+            CronometroEstado = 0;
+            CronometroPursuit = 0;
+        }
+
+        //Si el cronometro de estado es igual o menor a 0 estamos en estado normal, si es mayor a 1 pero menor que 2 estamos en estado alerta
+        //Y si es mayor a 2 pasamos al estado de ataque
+        if (CronometroEstado <= 0)
+        {
+            CambiarEstado(Estados.Normal);
+        }
+        else if (CronometroEstado >= 1 && CronometroEstado < 2)
+        {
+            CambiarEstado(Estados.Alerta);
+        }
+        else if (CronometroEstado >= 2)
+        {
+            CambiarEstado(Estados.Ataque);
+        }
+
+
     }
-    // Método llamado cuando el guardia colisiona con el jugador
-    private void OnTriggerEnter(Collider other)
+
+    //Creamos un void que nos servira para poder cambiar de estados mediante eventos o variables del juego
+    private void CambiarEstado(Estados nuevoEstado)
     {
-        if (other.CompareTag("Player")) // Si el colisionador es el jugador
+        Vector3 Distance = Vector3.zero;
+        Vector3 steeringForce = Vector3.zero;
+        //Cambiamos el estado actual al nuevo estado y de esta forma el nuevo estado nos permitira cambiar entre estados
+        EstadoActual = nuevoEstado;
+        switch (EstadoActual)
         {
-            Destroy(player1); // Destruir al jugador
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name); // Recargar la escena actual
+            case Estados.Normal:
+                Rotar();
+                RendererObject.material.color = ColorNormal;
+                VisionAngle = 30;
+                steeringForce = Seek(posicionInicial);
+                break;
+            case Estados.Alerta:
+                steeringForce = Seek(ultimaPosicionDetectada);
+                RendererObject.material.color = ColorAlerta;
+                VisionAngle = 60f;
+                break;
+            case Estados.Ataque:
+                RendererObject.material.color = ColorAtaque;
+                steeringForce = Pursuit(TargetGameObject.transform.position, rbTargetGameObject.velocity);
+
+                break;
         }
+        steeringForce = Vector3.Min(steeringForce, steeringForce.normalized * maxSteeringForce);
+
+        rb.AddForce(steeringForce, ForceMode.Acceleration);
     }
 
-
-    // Método para volver a la posición inicial del guardia
-    void ReturnToInitialPosition()
+    //Funcion de arrive del profe
+    private float ArriveFunction(Vector3 DistanceVector)
     {
-        Rigidbody rb = GetComponent<Rigidbody>(); // Obtiene el componente Rigidbody del guardia
-        Vector3 directionToInitial = initialPosition.position - transform.position; // Calcula la dirección hacia la posición inicial
-        float distanceToInitial = directionToInitial.magnitude; // Calcula la distancia a la posición inicial
-
-        // Verifica si el guardia está suficientemente cerca de la posición inicial
-        if (distanceToInitial>0.1)
+        // te dice si el agente está a una distancia Menor que la del radio de la slowing area
+        // (área de reducción de velocidad)
+        // requisitos: posición del agente, radio del área, posición del objetivo 
+        // calcular la distancia entre mi posición y la posición del objetivo.
+        float Distance = DistanceVector.magnitude;
+        // usamos esa distancia y la comparamos con el radio del área.
+        if (Distance < slowAreaRadius)
         {
-            transform.position = Vector3.MoveTowards(transform.position, initialPosition.position, pursuitSpeed * Time.deltaTime);
-
-            Quaternion targetRotation = Quaternion.LookRotation(directionToInitial);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * pursuitSpeed);
+            // si la distancia es menor que el radio, Entonces en qué porcentage de velocidad
+            // debería ir mi agente
+            return Distance / slowAreaRadius;
         }
-        else
-        {
-            // Si está suficientemente cerca, detiene al guardia y lo coloca exactamente en la posición inicial
-            rb.velocity = Vector3.zero; // Detiene el movimiento del guardia
-            transform.position = initialPosition.position; // Coloca al guardia en la posición inicial
-            transform.rotation = initialPosition.rotation; // Restablece la rotación del guardia a su estado inicial
-            
-            // Restablece el estado del guardia
-            isAttacking = false;
-            isAlerted = false;
-        }
+        // sino, que vaya lo más rápido que pueda.
+        return 1.0f;
     }
 
-
-
-
-    void OnDrawGizmosSelected()
+    //Funcion de GetSteeringForce del profe
+    private Vector3 GetSteeringForce(Vector3 DistanceVector)
     {
-        if (isAlerted)
-        {
-            Gizmos.color = alertedColor;
-        }
-        else if (isAttacking)
-        {
-            Gizmos.color = attackingColor;
-        }
-        else
-        {
-            Gizmos.color = normalColor;
-        }
-        // Dibujar el área de visión del guardia
-       
+        Vector3 desiredDirection = DistanceVector.normalized;  // queremos la dirección de ese vector, pero de magnitud 1.
 
-        Vector3 visionDirection = Quaternion.Euler(0, visionAngle / 2f, 0) * transform.forward;
-        Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
-        visionDirection = Quaternion.Euler(0, -visionAngle / 2f, 0) * transform.forward;
-        Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
-        if (player != null)
+        // queremos ir para esa dirección lo más rápido que se pueda.
+        Vector3 desiredVelocity = desiredDirection * maxSpeed;
+
+        if (useArrive)
         {
-            // Cambiar el color de los Gizmos para la trayectoria
-            Gizmos.color = Color.blue; // Puedes cambiar este color a lo que prefieras
-                                       // Dibujar una línea desde la posición del guardia hasta la posición del jugador
-            Gizmos.DrawLine(transform.position, player.position);
+            // Si vamos a usar arrive, puede que no querramos ir lo más rápido posible.
+            float speedPercentage = ArriveFunction(DistanceVector);
+            desiredVelocity *= speedPercentage;
         }
-        if (initialPosition != null)
+
+        // La diferencia entre la velocidad que tenemos actualmente y la que queremos tener.
+        Vector3 steeringForce = desiredVelocity - rb.velocity;
+
+        return steeringForce;
+    }
+
+    //Funcion de Seek del profe
+    private Vector3 Seek(Vector3 TargetPosition)
+    {
+        return GetSteeringForce(TargetPosition - transform.position);
+    }
+
+    //Funcion pursuit del profe
+    private Vector3 Pursuit(Vector3 TargetPosition, Vector3 TargetVelocity)
+    {
+        Vector3 predictedPosition = PredictPosition(TargetPosition, TargetVelocity);
+
+        return Seek(predictedPosition);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (EstadoActual == Estados.Ataque)
         {
-            Gizmos.color = Color.green; // Color para la posición inicial, cambia a lo que prefieras
-                                        // Dibujar una esfera pequeña en la posición inicial
-            Gizmos.DrawSphere(initialPosition.position, 0.5f); // Ajusta el tamaño de la esfera según necesites
+            TargetGameObject.SetActive(false);
+            //Destroy(TargetGameObject);
+            CambiarEstado(Estados.Normal);
+            CronometroPursuit = 5;
+            //CrearNuevoAgente();
+        }
+
+
+    }
+
+    private void CrearNuevoAgente()
+    {
+        /*GameObject nuevoAgente = Instantiate(agentPrefab, PosicionInicialAgente, Quaternion.identity);
+        Agent = nuevoAgente.transform;*/
+        //TargetGameObject.SetActive(true);
+
+        if (!Agent.gameObject.activeSelf)
+        {
+            // Reactivar el agente
+            Agent.gameObject.SetActive(true);
+            // Reiniciar la posición del agente a la posición inicial
+            Agent.position = PosicionInicialAgente;
         }
     }
+
+    //Generamos una funcion que nos permitira rotar el objeto pasados 5 segundos en el cronometro de la rotacion
+    private void Rotar()
+    {
+
+        if (CronometroRotacion <= 0f)
+        {
+            transform.Rotate(0, 0, 45, 0);
+            CronometroRotacion += 5f;
+        }
+        else if (CronometroRotacion > 0f)
+        {
+            CronometroRotacion -= Time.deltaTime;
+        }
+    }
+
+    //Funcion de predecir posicion del profe
+    private Vector3 PredictPosition(Vector3 TargetPosition, Vector3 TargetVelocity)
+    {
+        // Pursuit no es mucho más que hacerle Seek a la posición futura del objetivo.
+        // Primero calculamos el tiempo T que nos tomaría llegar al TargetPosition.
+        Vector3 Distance = transform.position - TargetPosition;
+        // con esa distancia, podemos saber cuánto tiempo nos tomará recorrer esa 
+        // distancia usando nuestra máxima velocidad.
+        // TiempoT = Distancia/MaxSpeed
+        float predictedTime = Distance.magnitude / maxSpeed;
+        // usamos Distance.magnitude porque queremos cuánto mide el vector, no hacia dónde (o no hacia qué dirección).
+        // Ahora sí podemos predecir la posición futura de nuestro TargetObject.
+        // Su posición futura es: Su posición actual + su velocidad * cuánto tiempo transcurre.
+        Vector3 predictedPosition = TargetPosition + TargetVelocity * predictedTime;
+
+        return predictedPosition;
+    }
+
+    // Utilizamos el metodo OnDrawGizmos para poder visualizar el rango y angulo de vision de nuestro objeto
+    private void OnDrawGizmos()
+    {
+        // Si nuestro anugulo de vision es igual o menor a 0 no se dibuja nada
+        if (VisionAngle <= 0f) return;
+
+        // Dividimos el angulo de vision a la mitad para facilitar la deteccion
+        float HalfVisionAngle = VisionAngle * 0.5f;
+
+        // p1 = primera mitad del angulo, p2 = segunda mitad del angulo
+        Vector2 p1, p2;
+
+        // Establecemos quien es la mitad "positiva" y quien es la mitad "negativa" en cuestion de las mitades del angulo
+        p1 = PointForAngle(HalfVisionAngle, VisionDistance);
+        p2 = PointForAngle(-HalfVisionAngle, VisionDistance);
+
+        // Establecemos que el color cuando es detectado sea rojo y cuando no lo este sea de color verde
+        Gizmos.color = detected ? Color.red : Color.green;
+
+        // Dibujamos el limite de hasta donde llega el angulo de deteccion tanto de la mitad superior o primera mitad asi como de la mitad inferior
+        // o segunda mitad
+        Gizmos.DrawLine(VisionObject.position, (Vector2)VisionObject.position + p1);
+        Gizmos.DrawLine(VisionObject.position, (Vector2)VisionObject.position + p2);
+
+        // Desde donde esta nuestro objeto tiramos un rayo en su direccion de la derecha con la finalidad de saber para donde esta apuntando
+        Gizmos.DrawRay(VisionObject.position, VisionObject.right * 4f);
+    }
+
+    // Fuentes:
+    // https://www.youtube.com/watch?v=lV47ED8h61k (Video anexado a la tarea en el classroom por el profesor)
+    // Cambiar de color el objeto ->https://www.youtube.com/watch?v=-_2rMgCqEk0 (Basado en el minuto 5:00 de este video)
+    // Modificar el switch-case mediante una variable -> https://www.youtube.com/watch?v=Cywj2rx2AMc (El minuto 3:52 me dio la idea)
 }
