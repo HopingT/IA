@@ -1,191 +1,208 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
 
 public class GuardScript : MonoBehaviour
 {
-    public Transform player; // Referencia al infiltrador
-    public Collider capsuleC;
-    public GameObject player1;
-    public float visionAngle = 45f; // Ángulo de visión del guardia
-    public float visionRadius = 10f; // Radio de visión del guardia
-    public float rotationInterval = 5f; // Intervalo de rotación del guardia
-    public float alertDuration = 3f; // Duración del estado de alerta
+    // Variables públicas para configurar el comportamiento del guardia desde el editor de Unity
+    public Transform player; // Referencia al jugador para poder detectarlo
+    public Collider capsuleC; // Colisionador del guardia, no se utiliza en este script
+    public GameObject player1; // Objeto del jugador, utilizado para destruir al jugador si es necesario
+    public float visionAngle = 45f; // Ángulo de visión del guardia para detectar al jugador
+    public float visionRadius = 5f; // Radio de visión del guardia para detectar al jugador
+    public float rotationInterval = 5f; // Tiempo entre rotaciones del guardia cuando no está en alerta
+    public float alertDuration = 3f; // Duración del estado de alerta, no se utiliza en este script
     public float attackDuration = 5f; // Duración del estado de ataque
-    public float pursuitSpeed = 5f; // Velocidad de persecución del guardia
-    public Transform initialPosition; // Posición inicial del guardia
-    public float attackRange = 0.1f;
-    private float timeSinceLastRotation = 0f;
-    private bool isAlerted = false;
-    private bool isAttacking = false;
-    private Vector3 lastPlayerPosition;
-    public Color normalColor = Color.yellow;
-    public Color alertedColor = Color.red;
-    public Color attackingColor = Color.magenta;
+    public float pursuitSpeed = 5f; // Velocidad a la que el guardia persigue al jugador
+    public Transform initialPosition; // Posición inicial del guardia para volver a ella si es necesario
+    public float attackRange = 0.1f; // Rango de ataque del guardia, no se utiliza en este script
+    private float timeSinceLastRotation = 0f; // Temporizador para controlar la rotación del guardia
+    private bool isAlerted = false; // Indica si el guardia está en estado de alerta
+    private bool isAttacking = false; // Indica si el guardia está atacando
+    private Vector3 lastPlayerPosition; // Última posición conocida del jugador
+    public Color normalColor = Color.yellow; // Color del guardia en estado normal
+    public Color alertedColor = Color.red; // Color del guardia en estado de alerta
+    public Color attackingColor = Color.magenta; // Color del guardia en estado de ataque
 
+    // Método Start llamado al inicio para inicializar variables
     void Start()
     {
-        lastPlayerPosition = initialPosition.position;
+        lastPlayerPosition = player.position; // Inicializa la última posición conocida del jugador
     }
 
+    // Método Update llamado en cada frame para actualizar el estado del guardia
     void Update()
     {
+        // Si el guardia no está alertado ni atacando, rota y busca al jugador
         if (!isAlerted && !isAttacking)
         {
             RotateGuard();
             CheckForPlayer();
+            visionAngle = 45f; // Restablece el ángulo de visión, aunque ya se inicializa con este valor
         }
+        // Si el guardia está alertado, entra en estado de alerta
         else if (isAlerted)
         {
             AlertState();
         }
+        // Si el guardia está atacando, entra en estado de ataque
         else if (isAttacking)
         {
             AttackState();
+            visionAngle = 25f; // Reduce el ángulo de visión para concentrarse en el ataque
         }
     }
 
+    // Método para rotar al guardia en intervalos regulares
     void RotateGuard()
     {
-        timeSinceLastRotation += Time.deltaTime;
+        timeSinceLastRotation += Time.deltaTime; // Aumenta el temporizador basado en el tiempo real
         if (timeSinceLastRotation >= rotationInterval)
         {
-            // Rotar el guardia en un ángulo aleatorio
+            // Rotar el guardia en un ángulo aleatorio entre 45 y 90 grados
             transform.Rotate(Vector3.up, Random.Range(45f, 90f));
-            timeSinceLastRotation = 0f;
+            timeSinceLastRotation = 0f; // Restablecer el temporizador
         }
     }
 
+    // Método para detectar al jugador dentro del campo de visión
     void CheckForPlayer()
     {
-        Vector3 directionToPlayer = player.position - transform.position;
-        float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
-        if (angleToPlayer <= visionAngle / 2f)
+        Vector3 directionToPlayer = player.position - transform.position; // Calcular dirección hacia el jugador
+        float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer); // Calcular ángulo hacia el jugador
+        if (angleToPlayer <= visionAngle / 2f) // Si el jugador está dentro del ángulo de visión
         {
             RaycastHit hit;
-            if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius))
+            if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius)) // Lanzar un rayo hacia el jugador
             {
-                if (hit.collider.CompareTag("Player"))
+                if (hit.collider.CompareTag("Player")) // Si el rayo colisiona con el jugador
                 {
-                    isAlerted = true;
-                    lastPlayerPosition = player.position;
+                    isAlerted = true; // El guardia entra en estado de alerta
+                    lastPlayerPosition = player.position; // Actualiza la última posición conocida del jugador
+                } else
+                {
+                    ReturnToInitialPosition();
                 }
+                    
             }
         }
     }
+
+
 
     void AlertState()
     {
-        // Ampliar ligeramente el cono de visión
-        visionAngle = 90f; // Ángulo ligeramente más amplio que el normal
+        visionAngle = 90f; // Aumentar el ángulo de visión para buscar al jugador más eficazmente
 
-        // Calcular la dirección y distancia al jugador
-        Vector3 directionToPlayer = player.position - transform.position;
-        float distanceToPlayer = directionToPlayer.magnitude;
+        Vector3 directionToLastSeen = lastPlayerPosition - transform.position; // Calcular dirección hacia la última posición conocida del jugador
+        float distanceToLastSeen = directionToLastSeen.magnitude; // Calcular distancia hacia la última posición conocida del jugador
 
-        // Moverse hacia la última posición conocida del jugador con Arrive
-        Vector3 moveDirection = (lastPlayerPosition - transform.position).normalized;
-        float distanceToLastSeen = Vector3.Distance(transform.position, lastPlayerPosition);
-        float desiredSpeed = Mathf.Min(distanceToLastSeen / 2f, pursuitSpeed); // Ajustar la velocidad deseada para el Arrive
-        Vector3 desiredVelocity = moveDirection * desiredSpeed;
-        Vector3 steering = desiredVelocity - GetComponent<Rigidbody>().velocity;
-        Vector3 acceleration = Vector3.ClampMagnitude(steering, pursuitSpeed);
-        GetComponent<Rigidbody>().velocity += acceleration * Time.deltaTime;
+        // Implementa el comportamiento de "arrive" para acercarse a la última posición conocida del jugador
+        if (distanceToLastSeen > 0.5f) // Si hay una distancia significativa hasta la última posición conocida
+        {
+            float speedFactor = Mathf.Min(distanceToLastSeen / 5f, 1f); // Calcular factor de velocidad para desacelerar al acercarse
+            float desiredSpeed = speedFactor * pursuitSpeed; // Calcular velocidad deseada
+            Vector3 desiredVelocity = directionToLastSeen.normalized * desiredSpeed; // Calcular vector de velocidad deseada
+            GetComponent<Rigidbody>().velocity = desiredVelocity; // Aplicar velocidad al guardia
+        }
+        else
+        {
+            GetComponent<Rigidbody>().velocity = Vector3.zero; // Detener al guardia si está suficientemente cerca
+        }
 
         // Rotar hacia la última posición conocida del jugador
-        Quaternion lookRotation = Quaternion.LookRotation(moveDirection);
-        transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
-
-        // Verificar si el jugador es visible
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, directionToPlayer, out hit, visionRadius))
+        if (directionToLastSeen != Vector3.zero)
         {
-            if (hit.collider.CompareTag("Player"))
+            Quaternion lookRotation = Quaternion.LookRotation(directionToLastSeen);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 2f); // Suavizar la rotación
+        }
+
+        // Verificar si el jugador vuelve a entrar en el campo de visión
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, directionToLastSeen, out hit, visionRadius))
+        {
+            if (hit.collider.CompareTag("Player")) // Si detecta al jugador
             {
-                // Cambiar al estado de ataque si el jugador es visible
-                isAlerted = false;
-                isAttacking = true;
-                visionAngle = 45f; // Restablecer el ángulo de visión
-                return;
+                isAlerted = false; // Salir del estado de alerta
+                isAttacking = true; // Entrar en estado de ataque
+                visionAngle = 45f; // Restablecer ángulo de visión
+                visionRadius = 5f; // Restablecer radio de visión
+                return; // Salir del método
             }
         }
 
-        // Si el guardia ve la última posición conocida, mantenerse alerta
-        if (Vector3.Angle(transform.forward, directionToPlayer) < visionAngle / 2f && distanceToLastSeen <= visionRadius)
+        // Si el guardia ha llegado a la última posición conocida y no detecta al jugador, vuelve a su posición inicial
+        if (distanceToLastSeen <= 0.2f)
         {
-            // Temporizador para volver al estado normal si el jugador no es detectado
-            alertDuration = 3f; // Reiniciar el temporizador
-            return;
-        }
-
-        // Temporizador para volver al estado normal si el jugador no es detectado
-        if ((alertDuration -= Time.deltaTime) <= 0)
-        {
-            // Si el jugador no es detectado después de volver a la última posición conocida, regresar a la posición inicial
             ReturnToInitialPosition();
         }
     }
+
 
 
 
 
     void AttackState()
     {
-        
-        // Calculate direction to the player
-        Vector3 directionToPlayer = player.position - transform.position;
+        Vector3 directionToPlayer = player.position - transform.position; // Calcular dirección hacia el jugador
+        transform.position += directionToPlayer.normalized * pursuitSpeed * Time.deltaTime; // Moverse hacia el jugador
+        visionAngle = 25; // Reducir ángulo de visión para concentrarse en el ataque
 
-        // Move towards the player
-        transform.position += directionToPlayer.normalized * pursuitSpeed * Time.deltaTime;
-        visionAngle = 120;
-        // Rotate towards the player
+        // Rotar hacia el jugador
         Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer);
         transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
 
-        // Check if the player is within attack range
+        // Calcular distancia al jugador
         float distanceToPlayer = directionToPlayer.magnitude;
-        // If attack duration has passed, return to normal state
-        if ((attackDuration -= Time.deltaTime) <= 0)
+        if ((attackDuration -= Time.deltaTime) <= 0) // Reducir duración del ataque y verificar si ha terminado
         {
-            isAttacking = false;
-            attackDuration = 5;
-            ReturnToInitialPosition();
-            // Optionally: Implement behavior to return to normal state or continue patrolling
+            isAttacking = false; // Salir del estado de ataque
+            attackDuration = 5; // Restablecer duración del ataque
+            ReturnToInitialPosition(); // Volver a la posición inicial
         }
     }
-
+    // Método llamado cuando el guardia colisiona con el jugador
     private void OnTriggerEnter(Collider other)
     {
-        if(other.CompareTag("Player"))
+        if (other.CompareTag("Player")) // Si el colisionador es el jugador
         {
-            Destroy(player1);
+            Destroy(player1); // Destruir al jugador
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name); // Recargar la escena actual
         }
     }
 
 
+    // Método para volver a la posición inicial del guardia
     void ReturnToInitialPosition()
     {
-        // Implementar el comportamiento de Arrive para volver a la posición inicial
-        Vector3 directionToInitialPosition = initialPosition.position - transform.position;
-        float distanceToInitialPosition = directionToInitialPosition.magnitude;
+        Rigidbody rb = GetComponent<Rigidbody>(); // Obtiene el componente Rigidbody del guardia
+        Vector3 directionToInitial = initialPosition.position - transform.position; // Calcula la dirección hacia la posición inicial
+        float distanceToInitial = directionToInitial.magnitude; // Calcula la distancia a la posición inicial
 
-        if (distanceToInitialPosition > 1f) // Threshold to stop close to the position, e.g., 1 meter
+        // Verifica si el guardia está suficientemente cerca de la posición inicial
+        if (distanceToInitial>0.1)
         {
-            // Move towards the initial position
-            Vector3 moveDirection = directionToInitialPosition.normalized;
-            transform.position += moveDirection * pursuitSpeed * Time.deltaTime;
+            transform.position = Vector3.MoveTowards(transform.position, initialPosition.position, pursuitSpeed * Time.deltaTime);
 
-            // Rotate towards the initial position
-            Quaternion lookRotation = Quaternion.LookRotation(moveDirection);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
+            Quaternion targetRotation = Quaternion.LookRotation(directionToInitial);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * pursuitSpeed);
         }
         else
         {
-            // If reached initial position, return to normal state
+            // Si está suficientemente cerca, detiene al guardia y lo coloca exactamente en la posición inicial
+            rb.velocity = Vector3.zero; // Detiene el movimiento del guardia
+            transform.position = initialPosition.position; // Coloca al guardia en la posición inicial
+            transform.rotation = initialPosition.rotation; // Restablece la rotación del guardia a su estado inicial
+            
+            // Restablece el estado del guardia
             isAttacking = false;
             isAlerted = false;
         }
     }
+
+
 
 
     void OnDrawGizmosSelected()
@@ -209,5 +226,18 @@ public class GuardScript : MonoBehaviour
         Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
         visionDirection = Quaternion.Euler(0, -visionAngle / 2f, 0) * transform.forward;
         Gizmos.DrawLine(transform.position, transform.position + visionDirection * visionRadius);
+        if (player != null)
+        {
+            // Cambiar el color de los Gizmos para la trayectoria
+            Gizmos.color = Color.blue; // Puedes cambiar este color a lo que prefieras
+                                       // Dibujar una línea desde la posición del guardia hasta la posición del jugador
+            Gizmos.DrawLine(transform.position, player.position);
+        }
+        if (initialPosition != null)
+        {
+            Gizmos.color = Color.green; // Color para la posición inicial, cambia a lo que prefieras
+                                        // Dibujar una esfera pequeña en la posición inicial
+            Gizmos.DrawSphere(initialPosition.position, 0.5f); // Ajusta el tamaño de la esfera según necesites
+        }
     }
 }
