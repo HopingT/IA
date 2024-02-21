@@ -12,7 +12,7 @@ public class GuardScript : MonoBehaviour
     public Collider capsuleC; // Colisionador del guardia, no se utiliza en este script
     public GameObject player1; // Objeto del jugador, utilizado para destruir al jugador si es necesario
     public float visionAngle = 45f; // Ángulo de visión del guardia para detectar al jugador
-    public float visionRadius = 10f; // Radio de visión del guardia para detectar al jugador
+    public float visionRadius = 5f; // Radio de visión del guardia para detectar al jugador
     public float rotationInterval = 5f; // Tiempo entre rotaciones del guardia cuando no está en alerta
     public float alertDuration = 3f; // Duración del estado de alerta, no se utiliza en este script
     public float attackDuration = 5f; // Duración del estado de ataque
@@ -21,11 +21,13 @@ public class GuardScript : MonoBehaviour
     public float attackRange = 0.1f; // Rango de ataque del guardia, no se utiliza en este script
     private float timeSinceLastRotation = 0f; // Temporizador para controlar la rotación del guardia
     private bool isAlerted = false; // Indica si el guardia está en estado de alerta
-    private bool isAttacking = false; // Indica si el guardia está atacando
+    private bool isAttacking = false;
+    private bool isReturning = false;
     private Vector3 lastPlayerPosition; // Última posición conocida del jugador
     public Color normalColor = Color.yellow; // Color del guardia en estado normal
     public Color alertedColor = Color.red; // Color del guardia en estado de alerta
     public Color attackingColor = Color.magenta; // Color del guardia en estado de ataque
+    
 
     // Método Start llamado al inicio para inicializar variables
     void Start()
@@ -36,25 +38,36 @@ public class GuardScript : MonoBehaviour
     // Método Update llamado en cada frame para actualizar el estado del guardia
     void Update()
     {
-        // Si el guardia no está alertado ni atacando, rota y busca al jugador
-        if (!isAlerted && !isAttacking)
+        // Si el guardia está regresando, se llama a ReturnToInitialPosition y no se permite ninguna otra acción
+        if (isReturning)
         {
+            ReturnToInitialPosition();
+        }
+        else if (!isAlerted && !isAttacking && !isReturning)
+            {
             RotateGuard();
             CheckForPlayer();
-            visionAngle = 45f; // Restablece el ángulo de visión, aunque ya se inicializa con este valor
         }
-        // Si el guardia está alertado, entra en estado de alerta
-        else if (isAlerted)
-        {
-            AlertState();
-        }
-        // Si el guardia está atacando, entra en estado de ataque
-        else if (isAttacking)
-        {
-            AttackState();
-            visionAngle = 25f; // Reduce el ángulo de visión para concentrarse en el ataque
-        }
+        
+            // Si el guardia no está alertado ni atacando, busca al jugador
+            if (!isAlerted && !isAttacking)
+            {
+                RotateGuard();
+                CheckForPlayer();
+            }
+            else if (isAlerted)
+            {
+                AlertState();
+            }
+            else if (isAttacking)
+            {
+                AttackState();
+            }
+        
     }
+
+
+
 
     // Método para rotar al guardia en intervalos regulares
     void RotateGuard()
@@ -82,6 +95,7 @@ public class GuardScript : MonoBehaviour
                 {
                     isAlerted = true; // El guardia entra en estado de alerta
                     lastPlayerPosition = player.position; // Actualiza la última posición conocida del jugador
+                    isReturning = false;
                 }
             }
         }
@@ -124,8 +138,9 @@ public class GuardScript : MonoBehaviour
             {
                 isAlerted = false; // Salir del estado de alerta
                 isAttacking = true; // Entrar en estado de ataque
+                isReturning = false;
                 visionAngle = 45f; // Restablecer ángulo de visión
-                visionRadius = 10f; // Restablecer radio de visión
+               
                 return; // Salir del método
             }
         }
@@ -133,7 +148,9 @@ public class GuardScript : MonoBehaviour
         // Si el guardia ha llegado a la última posición conocida y no detecta al jugador, vuelve a su posición inicial
         if (distanceToLastSeen <= 0.5f)
         {
-            ReturnToInitialPosition();
+            isReturning = true;
+            isAlerted = false;
+            isAttacking = false;
         }
     }
 
@@ -151,15 +168,18 @@ public class GuardScript : MonoBehaviour
         Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer);
         transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * pursuitSpeed);
 
-        // Calcular distancia al jugador
-        float distanceToPlayer = directionToPlayer.magnitude;
-        if ((attackDuration -= Time.deltaTime) <= 0) // Reducir duración del ataque y verificar si ha terminado
+        // Cuando el tiempo de ataque se agota, cambia al estado de regreso
+        if ((attackDuration -= Time.deltaTime) <= 0)
         {
-            isAttacking = false; // Salir del estado de ataque
-            attackDuration = 5; // Restablecer duración del ataque
-            ReturnToInitialPosition(); // Volver a la posición inicial
+            isReturning = true;
+            isAttacking = false;
+            isAlerted = false; // Asegúrate de resetear también isAlerted
+            attackDuration = 5f; // Restablecer la duración del ataque para futuros usos
+            // No se realiza ninguna otra acción hasta que el guardia haya regresado
         }
     }
+
+
     // Método llamado cuando el guardia colisiona con el jugador
     private void OnTriggerEnter(Collider other)
     {
@@ -174,6 +194,9 @@ public class GuardScript : MonoBehaviour
     // Método para volver a la posición inicial del guardia
     void ReturnToInitialPosition()
     {
+        isReturning = true;
+        isAttacking = false;
+        isAlerted = false;
         // Calcula la dirección hacia la posición inicial
         Vector3 directionToInitial = (initialPosition.position - transform.position).normalized;
         // Calcula la distancia a la posición inicial
@@ -187,7 +210,7 @@ public class GuardScript : MonoBehaviour
         {
             // Interpola suavemente la posición del guardia hacia la posición inicial
             transform.position = Vector3.MoveTowards(transform.position, initialPosition.position, pursuitSpeed * Time.deltaTime);
-
+            
             // Rota al guardia para que mire hacia su posición inicial
             Quaternion targetRotation = Quaternion.LookRotation(directionToInitial);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * pursuitSpeed);
@@ -199,14 +222,12 @@ public class GuardScript : MonoBehaviour
             transform.rotation = initialPosition.rotation;
 
             // Restablece el estado del guardia
-            isAttacking = false;
-            isAlerted = false;
+
+            isReturning = false;
         }
     }
 
-
-
-    void OnDrawGizmosSelected()
+    void OnDrawGizmos()
     {
         if (isAlerted)
         {

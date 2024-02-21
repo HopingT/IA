@@ -374,7 +374,7 @@ Transform:
   m_GameObject: {fileID: 958254835}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -2.96}
+  m_LocalPosition: {x: 0, y: -0.52, z: -2.96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -700,7 +700,7 @@ MonoBehaviour:
   capsuleC: {fileID: 1028876928}
   player1: {fileID: 1028876926}
   visionAngle: 45
-  visionRadius: 10
+  visionRadius: 5
   rotationInterval: 5
   alertDuration: 3
   attackDuration: 5
