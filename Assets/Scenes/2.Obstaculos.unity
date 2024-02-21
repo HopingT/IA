@@ -1882,7 +1882,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 4
   stoppingDistance: 0.1
-  numberOfRays: 17
+  numberOfRays: 10
   angle: 90
   rayRange: 1.7
 --- !u!1 &1029732304

@@ -54,7 +54,7 @@ public class AvoidingFlyers : MonoBehaviour
             }
         }
         // Aplica el movimiento en solitario
-        this.transform.position += deltaPosition * Time.deltaTime;
+        //this.transform.position += deltaPosition * Time.deltaTime;
     }
 
     void SetTargetPosition()
@@ -71,8 +71,8 @@ public class AvoidingFlyers : MonoBehaviour
             // Si el agente no está en movimiento, comienza a moverse hacia el nuevo destino
             if (!isMoving)
             {
+                isMoving = true; // Activar el movimiento solo cuando se hace clic
                 currentTargetIndex = targetPositions.Count - 1;
-                isMoving = true;
             }
             else
             {
@@ -81,6 +81,7 @@ public class AvoidingFlyers : MonoBehaviour
             }
         }
     }
+
 
     private void OnDrawGizmos()
     {
@@ -101,7 +102,23 @@ public class AvoidingFlyers : MonoBehaviour
         {
             Vector3 targetPosition = targetPositions[currentTargetIndex];
             transform.LookAt(targetPosition);
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+
+            // Calcula la dirección hacia el objetivo
+            Vector3 moveDirection = (targetPosition - transform.position).normalized;
+
+            // Verifica si hay obstáculos en la dirección del movimiento
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, moveDirection, out hit, rayRange))
+            {
+                // Si hay un obstáculo, ajusta la dirección para evitarlo
+                Vector3 avoidDirection = Vector3.Reflect(moveDirection, hit.normal);
+                transform.position += avoidDirection * moveSpeed * Time.deltaTime;
+            }
+            else
+            {
+                // Si no hay obstáculos, mueve al agente hacia el objetivo
+                transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+            }
 
             // Si el agente llega al destino actual, avanza al siguiente destino
             if (Vector3.Distance(transform.position, targetPosition) <= stoppingDistance)
