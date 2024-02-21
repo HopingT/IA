@@ -697,14 +697,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   player: {fileID: 1028876931}
-  capsuleC: {fileID: 1028876928}
+  capsuleC: {fileID: 1476618509}
   player1: {fileID: 1028876926}
   visionAngle: 45
   visionRadius: 5
   rotationInterval: 5
   alertDuration: 3
   attackDuration: 5
-  pursuitSpeed: 1
+  pursuitSpeed: 2
   initialPosition: {fileID: 958254836}
   attackRange: 0.1
   normalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
