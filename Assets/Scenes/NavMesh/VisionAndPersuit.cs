@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using UnityEngine.AI;
+using System;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class VisionAndPursuit : MonoBehaviour
@@ -11,7 +12,7 @@ public class VisionAndPursuit : MonoBehaviour
     public float viewAngle;
     private Vector3 startPosition;
     private NavMeshAgent agent;
-    public GameObject targetPrefab;
+    public GameObject Player;
     public Transform spawnPoint;
 
     void Start()
@@ -62,17 +63,21 @@ public class VisionAndPursuit : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        // Verifica si el objeto colisionado es el objetivo
         if (collision.gameObject.CompareTag("Target"))
         {
-            Destroy(collision.gameObject);
+            // Desactiva el objeto colisionado
+            collision.gameObject.SetActive(false);
         }
     }
+
 
     public void RespawnTarget()
     {
         if (GameObject.FindGameObjectWithTag("Target") == null)
         {
-            Instantiate(targetPrefab, spawnPoint.position, spawnPoint.rotation);
+            Player.SetActive(true);
+            Player.transform.position = spawnPoint.position;
         }
     }
 
