@@ -28,12 +28,12 @@ public class VisionAndPursuit : MonoBehaviour
         DetectTarget();
 
         // Si está en su posición original, activa la rotación
-        if (Vector3.Distance(transform.position, startPosition) < 0.1f)
+        if (Vector3.Distance(transform.position, startPosition) < 0.5f)
         {
             Debug.Log("Está cerca de la posición original");
             isGuarding = true;
             RotateOnAxis();
-            ani.SetBool("Run", true);
+            ani.SetBool("Run", false);
 
         }
         else

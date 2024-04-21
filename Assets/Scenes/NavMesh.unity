@@ -364,6 +364,81 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 347990103}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &688083991 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+  m_PrefabInstance: {fileID: 908354642}
+  m_PrefabAsset: {fileID: 0}
+--- !u!136 &688083992
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 688083991}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 1.8304371
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.88805634, z: 0}
+--- !u!195 &688083993
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 688083991}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &688083994
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 688083991}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 168cf2e40f99bbb4eaa3838ef17488c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speed: 100
+  jumpHeight: 2
+  ani: {fileID: 688083995}
+--- !u!95 &688083995 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+  m_PrefabInstance: {fileID: 908354642}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &688083996 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+  m_PrefabInstance: {fileID: 908354642}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &714203010
 GameObject:
   m_ObjectHideFlags: 0
@@ -657,6 +732,76 @@ NavMeshAgent:
   m_BaseOffset: 0.5
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!1001 &908354642
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.06
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -24.03
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_Name
+      value: Agent
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 8f187522df23db240bdc8acabb01a692, type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 688083994}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 688083993}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3622789336791a142bb99928ec2c1502, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 688083992}
+  m_SourcePrefab: {fileID: 100100000, guid: 3622789336791a142bb99928ec2c1502, type: 3}
 --- !u!1001 &1012158012
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1313,10 +1458,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803cbc9627f949744996d5d27a71f232, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 714203014}
+  target: {fileID: 688083996}
   viewRadius: 5
   viewAngle: 44
-  Player: {fileID: 714203010}
+  Player: {fileID: 688083991}
   spawnPoint: {fileID: 206135561}
   ani: {fileID: 1659840754}
 --- !u!195 &1659840758
@@ -1329,11 +1474,11 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
+  m_Speed: 2
+  m_Acceleration: 4
   avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_AngularSpeed: 90
+  m_StoppingDistance: 1
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -1632,6 +1777,7 @@ SceneRoots:
   - {fileID: 1038166859}
   - {fileID: 1412472508}
   - {fileID: 1012158012}
+  - {fileID: 908354642}
   - {fileID: 298945083890414003}
   - {fileID: 719438076}
   - {fileID: 714203014}

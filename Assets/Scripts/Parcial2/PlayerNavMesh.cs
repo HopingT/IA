@@ -55,6 +55,7 @@ public class PlayerNavMesh : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space) && !isJumping)
         {
             Jump();
+            ani.SetBool("Walk", false);
         }
     }
 
@@ -80,6 +81,8 @@ public class PlayerNavMesh : MonoBehaviour
 
         // Activar la animación de salto
         ani.SetBool("Jump", true);
+        
+
     }
 
     // Método que se llama cuando el jugador aterriza después de un salto
