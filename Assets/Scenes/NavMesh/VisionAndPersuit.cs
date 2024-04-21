@@ -15,6 +15,8 @@ public class VisionAndPursuit : MonoBehaviour
     public GameObject Player;
     public Transform spawnPoint;
 
+    private bool isGuarding = false; // Variable para verificar si está en su posición de guardia
+
     void Start()
     {
         startPosition = transform.position;
@@ -24,6 +26,19 @@ public class VisionAndPursuit : MonoBehaviour
     void Update()
     {
         DetectTarget();
+
+        // Si está en su posición original, activa la rotación
+        if (Vector3.Distance(transform.position, startPosition) < 0.1f)
+        {
+            Debug.Log("Está cerca de la posición original");
+            isGuarding = true;
+            RotateOnAxis();
+        }
+        else
+        {
+            isGuarding = false;
+        }
+
         if (Input.GetKeyDown(KeyCode.R))
         {
             RespawnTarget();
@@ -78,6 +93,16 @@ public class VisionAndPursuit : MonoBehaviour
         {
             Player.SetActive(true);
             Player.transform.position = spawnPoint.position;
+        }
+    }
+
+    // Rotar sobre su eje si está en su posición original de guardia
+    void RotateOnAxis()
+    {
+        if (isGuarding)
+        {
+            Debug.Log("Rotando sobre su eje");
+            transform.Rotate(Vector3.up * Time.deltaTime * 30); // Modifica el valor de rotación según necesites
         }
     }
 
