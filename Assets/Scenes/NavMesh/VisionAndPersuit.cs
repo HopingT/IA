@@ -14,7 +14,7 @@ public class VisionAndPursuit : MonoBehaviour
     private NavMeshAgent agent;
     public GameObject Player;
     public Transform spawnPoint;
-
+    public Animator ani;
     private bool isGuarding = false; // Variable para verificar si está en su posición de guardia
 
     void Start()
@@ -33,10 +33,13 @@ public class VisionAndPursuit : MonoBehaviour
             Debug.Log("Está cerca de la posición original");
             isGuarding = true;
             RotateOnAxis();
+            ani.SetBool("Run", true);
+
         }
         else
         {
             isGuarding = false;
+            ani.SetBool("Run", true);
         }
 
         if (Input.GetKeyDown(KeyCode.R))
